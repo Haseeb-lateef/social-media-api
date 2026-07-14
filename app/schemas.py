@@ -31,6 +31,14 @@ class PostReponse(PostBase):
     owner_id: int
     owner: UserResponse
 
+class PostVote(BaseModel):
+    Post: PostReponse
+    likes: int
+
+    class Config:
+        from_attributes = True
+
+
     class Config:
         from_attributes = True
 
