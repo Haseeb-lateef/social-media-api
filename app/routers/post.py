@@ -3,6 +3,7 @@ from fastapi import  Response, status, HTTPException, Depends, APIRouter
 from ..database import get_db
 from sqlalchemy.orm import Session
 from typing import List, Optional
+from sqlalchemy import func
 
 router = APIRouter(
     prefix= "/posts",
@@ -14,7 +15,7 @@ router = APIRouter(
 
 
 
-@router.get("/", response_model= List[schemas.PostReponse])
+@router.get("/", response_model= List[schemas.PostVote])
 def get_posts(db: Session = Depends(get_db), limit:int = 10, skip: int = 0, search: Optional[str] = ""):
 
     # cursor.execute("""SELECT * FROM posts ORDER BY id""")
@@ -22,13 +23,16 @@ def get_posts(db: Session = Depends(get_db), limit:int = 10, skip: int = 0, sear
     # print(posts)
     print(limit)
     print(skip)
-    posts = db.query(models.Post).filter(models.Post.title.contains(search)).order_by(models.Post.id).limit(limit).offset(skip).all()
+    posts = db.query(models.Post).all()
+
+    results = db.query(models.Post, func.count(models.Votes.post_id).label("likes")).join(models.Votes, models.Votes.post_id == models.Post.id,isouter=True).group_by(models.Post.id).filter(models.Post.title.contains(search)).order_by(models.Post.id).limit(limit).offset(skip).all()
+    print(results)
    
     
-    return posts
+    return results
 
 
-@router.post("/", status_code= status.HTTP_201_CREATED, response_model= schemas.PostReponse)
+@router.post("/", status_code= status.HTTP_201_CREATED, response_model= schemas.PostVote)
 def create_post(post: schemas.PostCreate, db: Session = Depends(get_db), current_user: int = Depends(oauth2.get_current_user)):
     # cursor.execute("""INSERT INTO posts (title,content,published) VALUES (%s,%s,%s) RETURNING *""",(post.title,post.content,post.published))
 
@@ -38,7 +42,7 @@ def create_post(post: schemas.PostCreate, db: Session = Depends(get_db), current
 
     
 
-    new_post = models.Post(owner_id = current_user.id,**post.model_dump())
+    new_post = db.query(models.Post, func.count(models.Votes.post_id).label("likes")).join(models.Votes, models.Votes.post_id == models.Post.id,isouter=True).group_by(models.Post.id)
     print(new_post)
     db.add(new_post)
     db.commit()
